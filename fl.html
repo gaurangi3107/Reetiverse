@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reetiverse — Explore Indian States & UTs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root{ --gold:#ffd700; --gold2:#c9a24b; --ink:#000; --panel:#111; --panel2:#1a1a1a; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#000;color:#fff;font-family:"Poppins",sans-serif;padding:40px 20px;min-height:100vh}
+    h1{font-family:'Cinzel',serif;text-align:center;color:var(--gold);font-size:2.8rem;letter-spacing:2px;text-shadow:0 0 25px #ffcc00,0 0 60px #d4af37;margin-bottom:28px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:26px;width:95%;max-width:1200px;margin:0 auto}
+    .card{background:rgba(20,20,20,.9);border:2px solid var(--gold);border-radius:18px;overflow:hidden;box-shadow:0 0 25px rgba(255,215,0,.25);transition:.25s;display:flex;flex-direction:column;align-items:center}
+    .card:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 0 40px rgba(255,215,0,.5)}
+    .img-box{width:100%;height:180px;overflow:hidden;border-bottom:2px solid var(--gold)}
+    .img-box img{width:100%;height:100%;object-fit:cover;display:block}
+    .state-name{font-size:1.1rem;color:var(--gold);font-weight:700;margin:12px 0 10px}
+    .btn{background:linear-gradient(90deg,var(--gold2),var(--gold));border:none;color:#000;padding:9px 22px;border-radius:22px;font-weight:700;cursor:pointer;margin:0 0 14px;transition:.25s}
+    .btn:hover{transform:scale(1.07);box-shadow:0 0 18px var(--gold)}
+    footer{text-align:center;color:#aaa;margin:34px 0 10px;font-size:.95rem}
+
+    /* Modal */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);z-index:1000;justify-content:center;align-items:center}
+    .modal-content{background:#0f0f0f;border:2px solid var(--gold);border-radius:20px;box-shadow:0 0 40px rgba(255,215,0,.45);width:90%;max-width:760px;padding:26px;animation:pop .3s ease}
+    @keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+    .modal h2{font-family:'Cinzel',serif;color:var(--gold);font-size:1.8rem;margin-bottom:8px}
+    .options{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 14px}
+    .chip{background:linear-gradient(90deg,var(--gold2),var(--gold));color:#000;border:none;border-radius:26px;padding:10px 16px;font-weight:700;cursor:pointer}
+    .desc{line-height:1.7;color:#e0e0e0}
+    .close{margin-top:16px;background:none;border:1px solid var(--gold);color:var(--gold);padding:8px 16px;border-radius:20px;cursor:pointer}
+    .close:hover{background:var(--gold);color:#000}
+
+    /* Chatbot (single instance) */
+    #chat-launch{position:fixed;right:18px;bottom:18px;background:linear-gradient(45deg,var(--gold),var(--gold2));border:none;color:#000;font-size:1.6rem;border-radius:50%;width:56px;height:56px;cursor:pointer;box-shadow:0 0 15px rgba(255,215,0,.6);z-index:1200}
+    #chat-window{display:none;position:fixed;right:18px;bottom:84px;width:320px;height:420px;background:rgba(20,20,20,.97);border:2px solid var(--gold);border-radius:18px;box-shadow:0 0 25px rgba(255,215,0,.4);z-index:1200;overflow:hidden;flex-direction:column}
+    #chat-head{background:linear-gradient(90deg,var(--gold2),var(--gold));color:#000;text-align:center;font-weight:800;padding:10px}
+    #chat-body{flex:1;padding:10px;overflow-y:auto;color:#fff;display:flex;flex-direction:column;gap:8px}
+    .bubble{max-width:85%;padding:8px 12px;border-radius:12px;line-height:1.4}
+    .me{background:var(--gold);color:#000;margin-left:auto}
+    .bot{background:#141414;border:1px solid var(--gold);color:#ffd700}
+    #chat-inputbar{display:flex;border-top:1px solid #333}
+    #chat-input{flex:1;padding:10px;background:#000;color:#fff;border:none;outline:none}
+    #chat-send{background:var(--gold);color:#000;border:none;padding:0 14px;font-weight:800;cursor:pointer}
+
+    @media (max-width:768px){h1{font-size:2rem}.img-box{height:150px}}
+  </style>
+</head>
+<body>
+  <h1>Explore the States & Union Territories of India</h1>
+  <div class="grid" id="grid"></div>
+
+  <!-- Details Modal (single, reused) -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-content">
+      <h2 id="mTitle">State</h2>
+      <div class="options">
+        <button class="chip" data-type="food">Food</button>
+        <button class="chip" data-type="monuments">Monuments</button>
+        <button class="chip" data-type="culture">Culture</button>
+        <button class="chip" data-type="festivals">Festivals</button>
+        <button class="chip" data-type="population">Population</button>
+      </div>
+      <p id="mDesc" class="desc"></p>
+      <button class="close" id="mClose">Close</button>
+    </div>
+  </div>
+
+  <footer>© 2025 Reetiverse | Discover the Culture of Every State & UT of India</footer>
+
+  <!-- Chatbot (answers from page data only; no external API/key leakage) -->
+  <button id="chat-launch" title="Ask Reetiverse AI">💬</button>
+  <div id="chat-window" aria-hidden="true">
+    <div id="chat-head">Reetiverse AI</div>
+    <div id="chat-body"></div>
+    <div id="chat-inputbar">
+      <input id="chat-input" type="text" placeholder="Ask about any state..." />
+      <button id="chat-send">Send</button>
+    </div>
+  </div>
+
+<script>
+/**********************
+ * 1) Data (specific + generic "as-is" paragraphs)
+ **********************/
+const stateData = {
+  "Maharashtra": {
+    culture: "Maharashtra has a rich cultural heritage influenced by Maratha traditions, art, and classical music. Lavani dance and Warli paintings are iconic.",
+    food: "Vada Pav, Misal Pav, Puran Poli, Modak.",
+    monuments: "Gateway of India, Ajanta & Ellora Caves, Shaniwar Wada.",
+    festivals: "Ganesh Chaturthi, Gudi Padwa, Diwali.",
+    population: "~12.5 crore (125 million)."
+  },
+  "Rajasthan": {
+    culture: "Royal traditions, colorful attire, folk dance & music like Ghoomar and Kalbeliya.",
+    food: "Dal Baati Churma, Ghevar, Ker Sangri.",
+    monuments: "Hawa Mahal, Amer Fort, Mehrangarh Fort.",
+    festivals: "Desert Festival, Teej, Gangaur.",
+    population: "~8 crore (80 million)."
+  },
+  "Uttar Pradesh": {
+  food: "Uttar Pradesh’s cuisine blends Awadhi finesse, Mughlai richness, and vibrant street food. Lucknow is famed for kebabs—Tunday/galouti, kakori—and slow-cooked nihari, sheermal, and roomali roti. Varanasi adds kachori-sabzi, tamatar chaat, malaiyo (winter), and lassi; Agra contributes its iconic petha. Across towns you’ll find bedmi puri with aloo sabzi, basket (tokri) chaat, samosa, and melt-in-the-mouth jalebi. Milk-based sweets—rabri, peda (Mathura), khurchan—showcase the state’s dairy tradition. Flavors lean on saffron, kewra, ghee, and aromatic whole spices, balancing subtle nawabi dishes with tangy, crunchy chaats.",
+  monuments: "Uttar Pradesh holds some of the world’s greatest landmarks. The Taj Mahal (Agra) crowns Mughal artistry with perfect proportion and pietra dura inlay. Fatehpur Sikri—Akbar’s red-sandstone capital—preserves imperial palaces, the Diwan-i-Khas, and Buland Darwaza. In Lucknow, the Bara Imambara complex with its Bhulbhulaiya labyrinth and the grand Rumi Darwaza reflects Awadhi elegance. Beyond these, the ghats of Varanasi form a living cultural landscape along the Ganga, where temples, akharas, and centuries-old rituals define the city’s sacred identity.",
+  culture: "Uttar Pradesh’s culture interweaves nawabi ‘tehzeeb’ with folk vitality. Hindi, Urdu, Braj, Awadhi, and Bhojpuri shape poetry, drama, and song. Classical Kathak—especially the Lucknow gharana—flourishes alongside thumri, dadra, ghazal, and qawwali. Artisanal traditions include Lucknowi chikankari and zardozi, Moradabad brassware, Bhadohi carpets, and Khurja pottery. Literature from Tulsidas to modern poets, and culinary etiquette rooted in mehmaan-nawazi (hospitality), reflect refinement and warmth. Festivals, mushairas, and melas keep storytelling and performance at the heart of community life.",
+  festivals: "Festivals in Uttar Pradesh are spectacular and deeply participatory. Holi erupts in color, with Barsana’s Lathmar Holi adding playful tradition. The Ramnagar Ramlila stages a month-long epic performance, while Ayodhya’s Deepotsav lights the city with countless diyas. The Prayagraj Kumbh/Ardh-Kumbh draws millions for sacred bathing, and Varanasi’s daily Ganga Aarti turns the riverfront into a glowing amphitheatre. Eid, Diwali, Janmashtami (Mathura-Vrindavan), and Ram Navami bring communities together in devotion, music, and shared feasts.",
+  population: "Population: ~24 crore (240 million). Uttar Pradesh is India’s most populous state, spread across fertile Ganga plains and fast-growing urban clusters—Lucknow, Kanpur, Varanasi, Agra, Noida, and Ghaziabad. A young demographic drives education, services, MSMEs, and agriculture. Hindi and Urdu dominate, with Braj, Awadhi, and Bhojpuri enriching everyday speech. Rural areas focus on wheat, sugarcane, pulses, and dairying, while cities attract migration for industry, IT, and logistics. Social diversity, dense market networks, and improving connectivity (expressways, metro corridors) shape a dynamic, opportunity-rich population."
+},
+  "Kerala": {
+    culture: "‘God’s Own Country’ — Kathakali, Mohiniyattam, and traditional arts.",
+    food: "Appam with Stew, Sadya, Fish Curry, Puttu.",
+    monuments: "Padmanabhaswamy Temple, Bekal Fort, Hill Palace.",
+    festivals: "Onam, Vishu, Thrissur Pooram.",
+    population: "~3.6 crore (36 million)."
+  },
+  "Punjab": {
+    culture: "Vibrant Bhangra & Giddha, dhol-driven folk energy.",
+    food: "Butter Chicken, Sarson da Saag, Makki di Roti, Lassi.",
+    monuments: "Golden Temple, Jallianwala Bagh, Qila Mubarak.",
+    festivals: "Baisakhi, Lohri, Diwali.",
+    population: "~3 crore (30 million)."
+  },
+  "Bihar": {
+    food: "Bihar’s cuisine is hearty, comforting, and rooted in traditional cooking. Litti Chokha is the state's most iconic dish—whole wheat dough stuffed with sattu, roasted over charcoal, and paired with mashed vegetables. Bihar’s meals are simple but flavorful, using mustard oil, seasonal vegetables, and minimal spices. Sattu paratha, dal-pitha, ghugni, and kadhi badi are staples across households. Sweets have a special place—khaja, balushahi, thekua, and tilkut are deeply tied to festivals and celebrations. Food reflects homegrown ingredients, family traditions, and an agricultural lifestyle. Every meal represents warmth, simplicity, and nostalgia.",
+    monuments: "Bihar preserves India’s ancient intellectual and spiritual heritage. The Mahabodhi Temple in Bodh Gaya, a UNESCO World Heritage site, marks the place where Buddha attained enlightenment. Nalanda University ruins reveal India’s first global educational institution, attracting scholars from Asia. Vikramshila University stands as another significant center of Buddhist learning and philosophy. Together, these three monuments reflect Bihar’s legacy as the land of knowledge, meditation, and cultural strength.",
+    culture: "Bihar’s culture celebrates simplicity, literature, devotion, and folk art. Bhojpuri, Maithili, and Magahi languages express poetic and musical heritage. Madhubani painting, made using natural pigments and intricate patterns, is globally admired. Folk songs like Sohar, Kajri, and Chhath geet reflect life stages and spiritual devotion. Community bonding, hospitality, and respect for elders define the social values of the state.",
+    festivals: "Chhath Puja is Bihar’s most revered festival—a four-day ritual of gratitude to the Sun God. Devotees fast, prepare holy offerings, and stand in rivers during sunrise and sunset prayers. Sonepur Mela, Diwali, Teej, and Saraswati Puja are celebrated with equal excitement. Bihar’s festivals symbolize devotion, strength, and the spirit of community.",
+    population: "Population: ~13 crore (130 million). Bihar has one of the youngest populations in India, with a large student community aspiring for competitive exams and civil services. Most families are connected to agriculture, trade, and education, contributing to the state's growth."
+  },
+  "Chhattisgarh": {
+    food: "Chhattisgarh, often called the ‘rice bowl of India,’ is known for its use of rice, millets, and forest-grown ingredients. Popular dishes include chila, fara, angakar roti, and muthiya. Tribal communities incorporate wild mushrooms, bamboo shoots, leafy vegetables, and mahua flowers. The cuisine is simple, nutritious, and earthy, with minimal oil and natural flavors. Many meals are steamed or roasted, reflecting traditional techniques.",
+    monuments: "Chhattisgarh’s monuments highlight tribal heritage and ancient civilizations. Sirpur, a historic Buddhist site, features monasteries, temples, and carvings. The Bastar Palace represents royal architecture influenced by tribal crafts. The Mahamaya Temple in Ratanpur is a revered spiritual landmark. These sites reflect centuries of cultural exchange and regional pride.",
+    culture: "Chhattisgarh’s culture is vibrant and rooted in tribal traditions. Folk dances like Gaur and Raut Nacha are performed during harvest and festivals. The region is known for bell metal craft, terracotta, and dokra art. Music, storytelling, and community celebrations are integral to daily life. Simplicity and togetherness define its cultural identity.",
+    festivals: "Bastar Dussehra is the grandest festival of Chhattisgarh, celebrated for 75 days—one of the longest festivities in the world. Locals worship deities, perform dance rituals, and decorate temples with tribal motifs. Hareli, Madai, and Teeja festivals mark harvest cycles and seasonal change. Celebrations unite communities across villages.",
+    population: "Population: ~3 crore (30 million). Chhattisgarh has a significant tribal population, including Gond, Baiga, and Oraon communities. Agriculture and forest-based occupations support village life, while cities are growing through mining and industry."
+  },
+  "Goa": {
+    food: "Goan cuisine is a fusion of coastal flavors and Portuguese influence. Seafood dominates daily meals—fish curry, prawns, crab, and mussels cooked with coconut, vinegar, and spices. Goan Hindu cuisine includes vegetarian dishes like tambdi bhaji and sol kadi, while Goan Catholic cuisine is famous for vindaloo, sorpotel, and bebinca. The use of kokum, coconut milk, and toddy vinegar creates unique flavor profiles.",
+    monuments: "Goa’s monuments reflect Indo-Portuguese architecture and spiritual heritage. Basilica of Bom Jesus, a UNESCO site, holds the remains of St. Francis Xavier and symbolizes the spread of Christianity in Asia. Fort Aguada stands along the coast, offering views of the Arabian Sea and showcasing defense architecture. Se Cathedral is one of the largest churches in Asia, known for its majestic design.",
+    culture: "Goa’s culture blends Indian and Portuguese traditions. Music, dance, and nightlife play a major role in social life. Traditional Goan attire, Kunnbi sarees, and folk dances like Fugdi and Dhalo are part of cultural celebrations. The people value openness, joy, and a relaxed lifestyle.",
+    festivals: "Carnival is Goa’s most iconic festival—streets fill with music, parades, and colorful floats. Christmas and Easter are celebrated with midnight masses and community gatherings. Shigmo festival showcases folk dances and traditional theater. Each festival reflects joy, unity, and cultural pride.",
+    population: "Population: ~18 lakh (1.8 million). Goa has a diverse population of Konkani-speaking locals along with communities from across India and the world. Tourism and fishing are major occupations, shaping a cosmopolitan lifestyle."
+  }
+};
+
+// Long generic paragraphs (taken "as-is" from your second file, injected with the chosen state name)
+const genericText = {
+  food: (s) => `The food of ${s} reflects its rich tradition, with a variety of local spices, flavors, and unique recipes passed down through generations. From royal feasts to humble street food, the cuisine is known for its balance of taste and nutrition. Each region offers something distinct, made from local produce and herbs. People celebrate food as a part of their culture and hospitality, sharing meals during festivals and ceremonies. Meals are often prepared with care and devotion, representing unity and diversity in every bite. Culinary traditions evolve but still preserve the essence of ancient recipes, making the food not just sustenance but an experience of the region’s soul. It connects families, strengthens communities, and reflects the heart of its people.`,
+  monuments: (s) => `Monuments in ${s} stand as timeless witnesses to history and heritage. Each stone, carving, and structure tells a story of rulers, battles, and artistry that shaped the region’s identity. From magnificent forts to intricate temples, these monuments are symbols of pride and resilience. They attract travelers, historians, and architects from across the world. The craftsmanship reflects an era when art and devotion merged seamlessly. These sites are often surrounded by folklore and legends that deepen their mystique. Visiting them is not just a journey through architecture, but a connection to the people and spirit that built them centuries ago.`,
+  culture: (s) => `The culture of ${s} is an intricate weave of traditions, music, art, and daily life. It reflects a deep respect for ancestors, nature, and spirituality. Dance, drama, and crafts play an integral role in the community’s rhythm. People celebrate togetherness through customs and festivals that have stood the test of time. Handicrafts and folk art speak of creativity born from simplicity. The people uphold values of respect, kindness, and harmony. Whether in attire, language, or rituals, the diversity within the state represents India’s soul of unity in diversity.`,
+  festivals: (s) => `Festivals in ${s} are vibrant expressions of joy, gratitude, and tradition. Each festival marks a unique story—be it harvest celebrations, religious devotion, or change of seasons. People decorate homes, exchange sweets, and gather for music and dance. These occasions bridge generations, bringing families and communities together. Lights, colors, and prayers fill the air, spreading hope and happiness. Every festival showcases the harmony between people of different faiths and beliefs, making the cultural fabric richer and more colorful each year.`,
+  population: (s) => `The population of ${s} comprises people from diverse backgrounds and professions. Urban and rural communities coexist, each contributing to the state’s growth and progress. The youth bring energy and innovation, while elders uphold tradition and wisdom. Migration and modernization have influenced demographics, yet the people maintain their distinct regional identity. The blend of languages, cuisines, and lifestyles creates a unique social ecosystem that represents the strength and unity of India’s cultural diversity.`
+};
+
+/*****************************************
+ * 2) Image strategy (Wikipedia -> Unsplash -> SVG)
+ *****************************************/
+const fallbackSVG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">
+    <rect width="100%" height="100%" fill="#111"/>
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+          font-family="Poppins, Arial, sans-serif" font-size="28" fill="#ffd700">
+      Image unavailable
+    </text>
+  </svg>
+`);
+function unsplashByState(state, w=1200, h=800){
+  return `https://source.unsplash.com/featured/${w}x${h}/?${encodeURIComponent(state + ', India')}`;
+}
+
+// All States & UTs with Wikipedia titles tuned for better image hits
+const pages = [
+  { name: "Andhra Pradesh", title: "Andhra Pradesh" },
+  { name: "Arunachal Pradesh", title: "Arunachal Pradesh" },
+  { name: "Assam", title: "Assam" },
+  { name: "Bihar", title: "Bihar" },
+  { name: "Chhattisgarh", title: "Chhattisgarh" },
+  { name: "Goa", title: "Goa" },
+  { name: "Gujarat", title: "Gujarat" },
+  { name: "Haryana", title: "Haryana" },
+  { name: "Himachal Pradesh", title: "Himachal Pradesh" },
+  { name: "Jharkhand", title: "Jharkhand" },
+  { name: "Karnataka", title: "Karnataka" },
+  { name: "Kerala", title: "Kerala" },
+  { name: "Madhya Pradesh", title: "Madhya Pradesh" },
+  { name: "Maharashtra", title: "Maharashtra" },
+  { name: "Manipur", title: "Manipur" },
+  { name: "Meghalaya", title: "Meghalaya" },
+  { name: "Mizoram", title: "Mizoram" },
+  { name: "Nagaland", title: "Nagaland" },
+  { name: "Odisha", title: "Odisha" },
+  { name: "Punjab", title: "Punjab, India" },
+  { name: "Rajasthan", title: "Rajasthan" },
+  { name: "Sikkim", title: "Sikkim" },
+  { name: "Tamil Nadu", title: "Tamil Nadu" },
+  { name: "Telangana", title: "Telangana" },
+  { name: "Tripura", title: "Tripura" },
+  { name: "Uttar Pradesh", title: "Uttar Pradesh" },
+  { name: "Uttarakhand", title: "Uttarakhand" },
+  { name: "West Bengal", title: "West Bengal" },
+  { name: "Andaman & Nicobar Islands", title: "Andaman and Nicobar Islands" },
+  { name: "Chandigarh", title: "Chandigarh" },
+  { name: "Dadra & Nagar Haveli and Daman & Diu", title: "Dadra and Nagar Haveli and Daman and Diu" },
+  { name: "Delhi", title: "Delhi" },
+  { name: "Jammu & Kashmir", title: "Jammu and Kashmir (union territory)" },
+  { name: "Ladakh", title: "Ladakh" },
+  { name: "Lakshadweep", title: "Lakshadweep" },
+  { name: "Puducherry", title: "Puducherry (union territory)" }
+];
+
+/**********************
+ * 3) Build the grid
+ **********************/
+const grid = document.getElementById('grid');
+pages.forEach(p => {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const imgBox = document.createElement('div');
+  imgBox.className = 'img-box';
+  const img = document.createElement('img');
+  img.loading = 'lazy';
+  img.alt = p.name;
+  img.src = fallbackSVG; // temporary until fetch resolves
+  imgBox.appendChild(img);
+
+  const title = document.createElement('div');
+  title.className = 'state-name';
+  title.textContent = p.name;
+
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Get Details';
+  btn.addEventListener('click', () => openModal(p.name));
+
+  card.appendChild(imgBox);
+  card.appendChild(title);
+  card.appendChild(btn);
+  grid.appendChild(card);
+
+  const api = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(p.title)}`;
+  fetch(api, {headers:{'Accept':'application/json'}})
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+      const best = (data.originalimage && data.originalimage.source) || (data.thumbnail && data.thumbnail.source);
+      if(best){
+        img.src = best;
+        img.onerror = () => { img.onerror = null; img.src = unsplashByState(p.name); };
+      }else{
+        img.src = unsplashByState(p.name);
+        img.onerror = () => { img.onerror = null; img.src = fallbackSVG; };
+      }
+    })
+    .catch(() => { img.src = unsplashByState(p.name); img.onerror = () => { img.onerror = null; img.src = fallbackSVG; }; });
+});
+
+/************************
+ * 4) Modal interactions
+ ************************/
+const modal = document.getElementById('modal');
+const mTitle = document.getElementById('mTitle');
+const mDesc  = document.getElementById('mDesc');
+const mClose = document.getElementById('mClose');
+let currentState = '';
+function openModal(name){
+  currentState = name; mTitle.textContent = name; mDesc.textContent = 'Select a topic above to see details.';
+  modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false');
+}
+function closeModal(){ modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
+window.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
+mClose.addEventListener('click',closeModal);
+
+document.querySelectorAll('.chip').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const type = btn.getAttribute('data-type');
+    const d = stateData[currentState];
+    if(d && d[type]){ mDesc.textContent = d[type]; return; }
+    // Use the long generic text block from your second file
+    if(genericText[type]){ mDesc.textContent = genericText[type](currentState); }
+  });
+});
+
+/***********************************************
+ * 5) Lightweight on-page "AI" (no secret keys)
+ ***********************************************/
+const chatLaunch = document.getElementById('chat-launch');
+const chatWin = document.getElementById('chat-window');
+const chatBody = document.getElementById('chat-body');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+chatLaunch.addEventListener('click',()=>{
+  const open = chatWin.style.display==='flex';
+  chatWin.style.display = open ? 'none' : 'flex';
+  if(!open) chatInput.focus();
+});
+function appendBubble(text, me=false){
+  const b = document.createElement('div'); b.className = 'bubble ' + (me?'me':'bot'); b.textContent = text; chatBody.appendChild(b); chatBody.scrollTop = chatBody.scrollHeight;
+}
+function searchAnswer(q){
+  q = q.toLowerCase();
+  const topics = ['food','monuments','culture','festivals','population'];
+  const foundState = pages.map(p=>p.name).find(n => q.includes(n.toLowerCase()));
+  const foundTopic = topics.find(t => q.includes(t));
+  if(foundState){
+    const d = stateData[foundState] || {};
+    if(foundTopic && d[foundTopic]) return `${foundTopic[0].toUpperCase()+foundTopic.slice(1)} of ${foundState}: ${d[foundTopic]}`;
+    if(foundTopic){
+      return `${foundTopic[0].toUpperCase()+foundTopic.slice(1)} of ${foundState}: ${genericText[foundTopic](foundState)}`;
+    }
+    const keys = Object.keys(d);
+    if(keys.length){
+      return `${foundState}: I can tell you about ${keys.join(', ')}. Ask e.g. "${foundState} food"`;
+    }
+    return `${foundState}: Ask about food, monuments, culture, festivals, or population.`;
+  }
+  return 'Try asking like: "Kerala food", "Rajasthan monuments", or "Tell me the culture of Punjab".';
+}
+function send(){
+  const text = chatInput.value.trim(); if(!text) return; appendBubble(text,true); chatInput.value=''; appendBubble('…thinking');
+  const reply = searchAnswer(text);
+  // replace last bubble text
+  chatBody.lastChild.textContent = reply;
+}
+chatSend.addEventListener('click',send);
+chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
+
+/*****************************************************
+ * NOTE ABOUT OPENAI KEYS (SECURITY):
+ * Do NOT embed real API keys in front-end code. This page
+ * purposely avoids any direct external LLM calls for chat.
+ * If you want a real model, create a tiny server endpoint
+ * (e.g. /api/chat) that holds the key and forwards requests.
+ *****************************************************/
+</script>
+</body>
+</html>
